@@ -5,6 +5,11 @@
 	2025-03-22 maxwell
 		-initial publication in github repo
 
+    	2025-03-28 Gassgs
+        	-Made Button Count a preferences & changed parse to just send the number from the body as the button press
+	2025-03-30 SViel
+		-Added recognition of on/off button
+
 	*simple example driver for Sofabaton X1S remote, allows mapping X1S remote buttons to Hubitat button events
 
 	*driver configuration
@@ -15,9 +20,9 @@
 	*mobile app configuration on the X1S side for this specific driver instance:
 	-click add devices in devices tab, select Wi-Fi
 	-click link at bottom "Create a virtual device for IP control"
-	-enter http://my hubs IP address:39501/route (the route isn't actually used in this example, so the name could be anything, but it is required else the command won't be sent)
-	-set PUT as the request method, application/json as the content type
-	-in the body type the command text (no quotes), that you want to parse, toggle in this example code
+	-enter   http://my hubs IP address:39501/ 
+	-set PUT as the request method, for the Content Type leave blank, for Headers leave blank, for the Body, enter just the button number.
+
 
 */
 
@@ -25,8 +30,10 @@ metadata {
     definition (name: "Sofabaton X1S", namespace: "hubitat", author: "Mike Maxwell") {
         capability "Actuator"
         capability "PushableButton"
+        capability "Switch"
         preferences {
-            input name:"ip", type:"text", title: "X1S IP"
+            input name:"ip", type:"text", title: "X1S IP Address"
+            input name:"buttonCount", type: "number",title:"Button Count", description: "Set button count to suit your needs", defaultValue: 10
             input name:"logEnable", type: "bool", title: "Enable debug logging", defaultValue: false
             input name:"txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
         }
@@ -45,34 +52,31 @@ void updated(){
     if (logEnable) runIn(1800,logsOff)
     if (ip) {
         device.deviceNetworkId = ipToHex(IP)
-        //change button count to suit your needs
-        sendEvent(name:"numberOfButtons",value:10)
+        sendEvent(name:"numberOfButtons",value:settings.buttonCount)
     }
 }
 
 void parse(String description) {
-    Map msg = parseLanMessage(description)
-    switch (msg.body) {
-        //add other case commands below
-        case "toggle" :
-        	sendButtonEvent("pushed", 1, "physical")
-        	break
-        //case "yada" :
-        	//sendButtonEvent("pushed", 2, "physical")
-        	//break
-        default :
-        	log.debug "unknown body:${msg.body}"
-    }
+    msg = parseLanMessage(description)
+    if (logEnable) log.debug "String is: $msg"
+    if (logEnable) log.debug "String Header is: $msg.header"
+    if (logEnable) log.debug "String Body is: $msg.body"
+    if (txtEnable) log.info "$device.label Button $msg.body Pushed"
+    def data = msg.body
+    
+    //Recognize if the button name was "On" or "Off" and set the swtich instead of the button.
+    if (data.equalsIgnoreCase("on")){
+        sendEvent(name:"switch", value:"on")
+    } else if (data.equalsIgnoreCase("off")){
+        sendEvent(name:"switch", value:"off")
+    } else {
+	    sendEvent(name:"pushed", value:data,isStateChange: true)
+	}
 }
 
-void sendButtonEvent(String evt, Integer bid, String type) {
-    String descriptionText = "${device.displayName} button ${bid} was ${evt} [${type}]"
-    if (txtEnable) log.info "${descriptionText}"
-    sendEvent(name: evt, value: bid, descriptionText: descriptionText, isStateChange: true, type: type)
-}
-
-void push(button) {
-    sendButtonEvent("pushed", button, "digital", "driver UI")
+void push(data) {
+    if (txtEnable) log.info "$device.label Button $data Pushed"
+    sendEvent(name:"pushed", value:data,isStateChange: true)
 }
 
 String ipToHex(IP) {

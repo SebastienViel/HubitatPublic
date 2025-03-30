@@ -5,10 +5,11 @@
 	2025-03-22 maxwell
 		-initial publication in github repo
 
-    	2025-03-28 Gassgs
-        	-Made Button Count a preferences & changed parse to just send the number from the body as the button press
+    2025-03-28 Gassgs
+        -Made Button Count a preferences & changed parse to just send the number from the body as the button press
 	2025-03-30 SViel
 		-Added recognition of on/off button
+		-Added the option to store the name of an activity if included in the button press
 
 	*simple example driver for Sofabaton X1S remote, allows mapping X1S remote buttons to Hubitat button events
 
@@ -37,6 +38,7 @@ metadata {
             input name:"logEnable", type: "bool", title: "Enable debug logging", defaultValue: false
             input name:"txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
         }
+        attribute "Activity","String"
     }
 }
 
@@ -71,6 +73,7 @@ void parse(String description) {
         sendEvent(name:"switch", value:"off")
     } else {
 	    sendEvent(name:"pushed", value:data,isStateChange: true)
+        sendEvent(name: "Activity", value: "$data", isStateChange: true)
 	}
 }
 
